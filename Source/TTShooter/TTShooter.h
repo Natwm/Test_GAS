@@ -5,3 +5,5 @@
 #include "CoreMinimal.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTTShooter, Log, All);
+
+#define ECC_GRID ECollisionChannel::ECC_GameTraceChannel1
