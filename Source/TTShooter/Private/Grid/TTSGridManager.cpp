@@ -228,6 +228,16 @@ FVector ATTSGridManager::GetOffsetWorldLocationAtIndex(int32 GridIndex, float of
 	return GetActorTransform().TransformPosition(FVector(Location->X, Location->Y, Location->Z + offset));
 }
 
+FVector ATTSGridManager::GetTileLocationFromMap(int32 Index) const
+{
+	return *GridLocations.Find(Index);
+}
+
+int32 ATTSGridManager::GetTileCostFromMap(int32 Index) const
+{
+	return *GridCost.Find(Index);
+}
+
 void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, int32 TileCost)
 {
 	AddTileToLocationMap(GridIndex,TileLocation);
@@ -277,6 +287,42 @@ float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int3
 	float Distance = FVector::Dist(TileAPos, TileBPos);
 
 	return FMath::RoundToInt(Distance);
+}
+
+TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal)
+{
+	TArray<int32> Neighbors;
+
+	// Calcul de la position (x, y) à partir de l'index
+	int32 TileX = TileIndex % GridWidth;
+	int32 TileY = TileIndex / GridWidth;
+	for (int32 OffsetY = -1; OffsetY <= 1; ++OffsetY)
+	{
+		for (int32 OffsetX = -1; OffsetX <= 1; ++OffsetX)
+		{
+			// Ignorer la case centrale (celle qu'on vérifie)
+			if (OffsetX == 0 && OffsetY == 0)
+				continue;
+
+			// Exclure les cases diagonales si demandé
+			if (!bCanDoDiagonal && FMath::Abs(OffsetX) == FMath::Abs(OffsetY))
+				continue;
+
+			// Calcul des coordonnées du voisin
+			int32 NeighborX = TileX + OffsetX;
+			int32 NeighborY = TileY + OffsetY;
+
+			// Vérifier que les coordonnées restent dans les limites de la grille
+			if (NeighborX >= 0 && NeighborX < GridWidth && NeighborY >= 0 && NeighborY < GridHeight)
+			{
+				// Calculer l'index du voisin
+				int32 NeighborIndex = NeighborY * GridWidth + NeighborX;
+				Neighbors.Add(NeighborIndex);
+			}
+		}
+	}
+
+	return Neighbors;
 }
 
 

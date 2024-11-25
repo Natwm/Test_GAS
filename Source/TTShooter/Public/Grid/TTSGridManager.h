@@ -83,9 +83,12 @@ private :
 
 	// Getter On World And Grid
 	FVector GetTileLocationFromIndex(int32 Index, int32 Row, int32 Column) const;
-	
 	FVector GetOffsetWorldLocationAtIndex(int32 GridIndex, float offset);
 
+	//Map Gettter
+	FVector GetTileLocationFromMap(int32 Index) const;
+	int32 GetTileCostFromMap(int32 Index) const;
+	
 	// Map Function
 	void AddTileToMaps(int32 GridIndex, FVector TileLocation, int32 TileCost);
 	void AddTileToLocationMap(int32 TileIndex, FVector TileLocation);
@@ -96,4 +99,6 @@ private :
 	float GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex,int32 TileBIndex);
 	float GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex,int32 TileBIndex);
 	
+	// Calcule des voisins
+	TArray<int32> GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal);
 };
