@@ -4,6 +4,8 @@
 #include "Grid/TTSGridManager.h"
 
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Tiles/TTSTileModifier.h"
+#include "TTShooter/TTShooter.h"
 
 // Sets default values
 ATTSGridManager::ATTSGridManager()
@@ -60,44 +62,106 @@ void ATTSGridManager::SpawnGridFromWorld()
 {
 	check(GridHolder);
 	float AmountOfTile = GridSize.X * GridSize.Y;
-	if( AmountOfTile <= 0)
+	if (AmountOfTile <= 0)
 		return;
 
 	TArray<FTransform> ListOfTransforms;
+	FVector HalfPos = FVector(TileXSize/2, TileYSize/2, 0);
+
 	
 	FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(CastRadius, CastHalfHeight);
 	FCollisionQueryParams QueryParams;
-	QueryParams.bTraceComplex = false;     // Simplifies collision checks for performance
-	QueryParams.AddIgnoredActor(this);     
+	QueryParams.bTraceComplex = false;
+	QueryParams.AddIgnoredActor(this);
+
 	
-	for (int32 TileIndex = 0; TileIndex < AmountOfTile ; TileIndex++)
+	for (int32 TileIndex = 0; TileIndex < AmountOfTile; TileIndex++)
 	{
-		FVector StartTargetLocation = GetTileLocationFromIndex(TileIndex,GridSize.X,GridSize.Y) + FVector(0, 0, 500.0f);
-		FVector TargetLocation = GetTileLocationFromIndex(TileIndex,GridSize.X,GridSize.Y) - FVector(0, 0, -50.0f);
-
-		FHitResult hit;
-
-		bool bHit = GetWorld()->SweepSingleByChannel(hit,StartTargetLocation,TargetLocation,FQuat::Identity,
-			ECC_Visibility,CapsuleShape,QueryParams);
-
-		if (bHit)
-		{
-			FTransform LocalTransform;
-			//Todo Prendre en compte l'axe Z
-			LocalTransform.SetLocation(FVector(hit.Location.X,hit.Location.Y,0));
-			ListOfTransforms.Add(LocalTransform);
-			AddTileToMaps(TileIndex,LocalTransform.GetLocation(),1);
-		}
-		
-		if(!bShowCast)
-			return;
-
-		DrawDebugCapsule(GetWorld(),StartTargetLocation,CastHalfHeight,CastRadius,FQuat::Identity,
-			bHit ? FColor::Red : FColor::Green,false,10.0f );
+		FVector TilePosition = GetTileLocationFromIndex(TileIndex, GridSize.X, GridSize.Y);
+		ProcessTile(TileIndex, TilePosition, CapsuleShape, QueryParams, HalfPos, ListOfTransforms);
 	}
 
-	if(!ListOfTransforms.IsEmpty())
-		GridHolder->AddInstances(ListOfTransforms,false);
+	if (!ListOfTransforms.IsEmpty())
+		GridHolder->AddInstances(ListOfTransforms, false);
+}
+
+void ATTSGridManager::ProcessTile(
+	int32 TileIndex,
+	const FVector& TilePosition,
+	const FCollisionShape& CapsuleShape,
+	const FCollisionQueryParams& QueryParams,
+	FVector HalfPos,
+	TArray<FTransform>& ListOfTransforms
+	)
+{
+	FVector StartTargetLocation = ConvertFromGridToWorld(TilePosition + HalfPos + FVector(0.0f, 0.0f, 50.0f));
+	FVector TargetLocation = ConvertFromGridToWorld((TilePosition + HalfPos) + FVector(0.0f, 0.0f, -50.0f));
+
+	
+	TArray<FHitResult> Hits;
+	bool bHit = GetWorld()->SweepMultiByChannel(
+		Hits,
+		StartTargetLocation,
+		TargetLocation,
+		FQuat::Identity,
+		ECC_GRID,
+		CapsuleShape,
+		QueryParams
+	);
+
+	if (bHit && Hits.Num() > 0)
+	{
+		HandleHits(TileIndex, Hits, ListOfTransforms, TilePosition);
+	}
+
+	if (bShowCast)
+	{
+		DrawDebugCapsule(
+			GetWorld(),
+			StartTargetLocation,
+			CastHalfHeight,
+			CastRadius,
+			FQuat::Identity,
+			bHit ? FColor::Red : FColor::Green,
+			false,
+			240.0f
+		);
+	}
+}
+
+void ATTSGridManager::HandleHits(
+	int32 TileIndex,
+	const TArray<FHitResult>& Hits,
+	TArray<FTransform>& ListOfTransforms,
+	const FVector& TilePosition)
+{
+	FVector TileObjLocation = FVector(Hits[0].Location.X, Hits[0].Location.Y, 0) - FVector(TileXSize / 2, TileYSize / 2, 0.0f);
+	FTransform LocalTransform;
+	LocalTransform.SetLocation(ConvertFromWorldToGrid(TileObjLocation));
+
+	int32 TileCost = 1;
+
+	if (bool bCanCreateTile = DetermineTileCostAndValidity(Hits, TileCost))
+	{
+		ListOfTransforms.Add(LocalTransform);
+		AddTileToMaps(TileIndex, LocalTransform.GetLocation(), TileCost);
+	}
+}
+
+bool ATTSGridManager::DetermineTileCostAndValidity(const TArray<FHitResult>& Hits, int32& OutTileCost)
+{
+	for (const FHitResult& HitElement : Hits)
+	{
+		if (ATTSTileModifier* TileModifier = Cast<ATTSTileModifier>(HitElement.GetActor()))
+		{
+			if (TileModifier->GetTileCost() <= 0)
+				return false;
+			OutTileCost = TileModifier->GetTileCost();
+			return true;
+		}
+	}
+
+	return true;
 }
 
 FVector ATTSGridManager::ConvertFromGridToWorld(FVector Entry) const
@@ -121,16 +185,19 @@ TArray<FVector> ATTSGridManager::ConvertToGridIndexesLocation(TArray<int32> Inde
 	return GridIndexes;
 }
 
-int32 ATTSGridManager::ConvertGridCoordsToGridIndex(FVector Coord)
+int32 ATTSGridManager::ConvertGridCoordsToGridIndex(FVector Coord) const
 {
-	return (Coord.X * 1000 + Coord.Y) + Coord.Z * 10000;
+	// Calcul de l'index X et Y
+	int32 IndexX = FMath::FloorToInt(Coord.X / TileXSize);
+	int32 IndexY = FMath::FloorToInt(Coord.Y / TileYSize);
+
+	return (IndexY * GridSize.X) + IndexX;
 }
 
 FVector ATTSGridManager::GetTileLocationFromIndex(int32 Index, int32 Row, int32 Column) const
 {
 	float PosX = (Index % Row) * TileXSize;
 	float PosY = (((Index / Row)  - ((Index/ (Row * Column)) * Row)) * TileYSize);
-	UE_LOG(LogTemp, Warning, TEXT("Hello : %d = X = %f, Y = %f"), Index, PosX, PosY);
 	return FVector(PosX, PosY, 0);
 }
 
@@ -176,6 +243,43 @@ void ATTSGridManager::AddTileCostToCostMap(int32 TileIndex, int32 TileCost)
 {
 	GridCost.Add(TileIndex, TileCost);
 }
+
+bool ATTSGridManager::CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal)
+{
+	if (!bCanDoDiagonal)
+		return GetDistanceBtwTwoTiles_Manhattan(TileAIndex, TileBIndex) <= MaxDistance;
+	else
+		return GetDistanceBtwTwoTiles_Euclidienne(TileAIndex, TileBIndex) <= MaxDistance;
+		
+}
+
+float ATTSGridManager::GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex, int32 TileBIndex)
+{
+	if (GridLocations.Find(TileAIndex) == nullptr || GridLocations.Find(TileBIndex) == nullptr)
+		return -1;
+	
+	FVector TileAPos = *GridLocations.Find(TileAIndex);
+	FVector TileBPos = *GridLocations.Find(TileBIndex);
+
+	return  FMath::Abs(TileBPos.X - TileAPos.X) +
+			FMath::Abs(TileBPos.Y - TileAPos.Y) +
+			FMath::Abs(TileBPos.Z - TileAPos.Z);
+}
+
+float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int32 TileBIndex)
+{
+	if (GridLocations.Find(TileAIndex) == nullptr || GridLocations.Find(TileBIndex) == nullptr)
+		return -1;
+
+	FVector TileAPos = *GridLocations.Find(TileAIndex);
+	FVector TileBPos = *GridLocations.Find(TileBIndex);
+	
+	float Distance = FVector::Dist(TileAPos, TileBPos);
+
+	return FMath::RoundToInt(Distance);
+}
+
+
 
 
 
