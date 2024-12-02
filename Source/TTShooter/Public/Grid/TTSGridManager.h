@@ -7,6 +7,34 @@
 #include "TTSGridManager.generated.h"
 
 class UHierarchicalInstancedStaticMeshComponent;
+class UMaterialInterface;
+class APlayerController;
+
+UENUM(Blueprintable)
+enum class ETileState : uint8
+{
+	NONE,
+	HOVERED,
+	SELECTED
+};
+
+USTRUCT(BlueprintType, Blueprintable)
+struct FTileData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	int32 TileIndex = 0;
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+    int32 TileCost = 0;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	FVector TileLocation = FVector();
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	TArray<ETileState> TileState ;
+};
 
 UCLASS()
 class TTSHOOTER_API ATTSGridManager : public AActor
@@ -19,6 +47,8 @@ public:
 	TObjectPtr<UHierarchicalInstancedStaticMeshComponent> GridHolder;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration|Asset")
 	TObjectPtr<UStaticMesh> DefaultTileMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration|Asset")
+	TObjectPtr<UMaterialInterface> DefaultTileMaterial;
 
 	
 protected:
@@ -35,15 +65,42 @@ protected:
 	
 	//MAP
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Map")
-	TMap<int32, FVector> GridLocations;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Map")
-	TMap<int32, int32> GridCost;
+	TMap<int32, FTileData> GridData;
 
 private:
+	static ATTSGridManager* Instance;
+	APlayerController* PlayerController;
+	
 	float TileXSize = 100;
 	float TileYSize = 100;
+	float TileZSize = 100;
+	FVector const ErrorVector = FVector(-100000000000000000,-1111111000,-1000000000000);
+	int32 const ErrorInt = -1111;
+
+public:
+
+	static ATTSGridManager* GetInstance(UWorld* World)
+	{
+		if (!Instance)
+		{
+			if (World)
+			{
+				Instance = World->SpawnActor<ATTSGridManager>();
+			}
+		}
+		return Instance;
+	}
 	
-public:	
+	FVector GetErrorVector() const
+	{
+		return ErrorVector;
+	}
+
+	int32 GetErrorInt() const
+	{
+		return ErrorInt;
+	}
+
 	// Sets default values for this actor's properties
 	ATTSGridManager();
 
@@ -77,13 +134,17 @@ private :
 	FVector ConvertFromGridToWorld(FVector Entry) const;
 	FVector ConvertFromWorldToGrid(FVector Entry) const;
 	TArray<FVector> ConvertToGridIndexesLocation(TArray<int32> Indexes, FVector offset );
-	int32 ConvertGridCoordsToGridIndex(FVector Coord) const;
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	int32 ConvertGridCoordsToGridIndex(const FVector& Coord) const;
 	FVector ConvertIndexToWorldPosition (int32 GridIndex, int32 IndexX, int32 IndexZ, float HeightBetweenLevels) const;
 	FVector ConvertIndexToLocation(int32 Index, float ZOffset);
 
 	// Getter On World And Grid
 	FVector GetTileLocationFromIndex(int32 Index, int32 Row, int32 Column) const;
-	FVector GetOffsetWorldLocationAtIndex(int32 GridIndex, float offset);
+	FVector2d GetTilePosOnGridFromLocation(FVector TileLocation) const;
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	int32 GetTileIndexFromLocation(FVector TileLocation);
+	FVector GetOffsetWorldLocationAtIndex(int32 GridIndex, float Offset);
 
 	//Map Gettter
 	FVector GetTileLocationFromMap(int32 Index) const;
@@ -94,6 +155,10 @@ private :
 	void AddTileToLocationMap(int32 TileIndex, FVector TileLocation);
 	void AddTileCostToCostMap(int32 TileIndex, int32 TileCost);
 
+	// Tile Function
+	void AddTileState(int32 TileIndex, ETileState StateToAdd);
+	void RemoveTileState(int32 TileIndex, ETileState StateToAdd);
+	
 	// Calcule de distance
 	bool CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal);
 	float GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex,int32 TileBIndex);
@@ -101,4 +166,22 @@ private :
 	
 	// Calcule des voisins
 	TArray<int32> GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal);
+
+	// Mouse detection
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	FVector GetCursorLocationOnGrid() const;
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	FVector2D GetTileGridPosUnderCursor();
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	FVector GetTileLocationUnderCursor();
+
+public:
+	// Mouse detection
+	UFUNCTION(BlueprintCallable, Category="Cursor")
+	int32 GetTileIndexUnderCursor();
+
+	// Tile Function
+	void UpdateTileState(int32 TileIndex, ETileState StateToAdd, bool RemoveState = false);
+	FTileData GetTileDataFromIndex(int32 Index) const;
+	int32 GetTileAmountOfStateFromIndex(int32 Index);
 };

@@ -4,9 +4,13 @@
 #include "Grid/TTSGridManager.h"
 
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Tiles/TTSTileModifier.h"
 #include "TTShooter/TTShooter.h"
 
+ATTSGridManager* ATTSGridManager::Instance = nullptr;
+
+//ATTSGridManager* ATTSGridManager::Instance = nullptr;
 // Sets default values
 ATTSGridManager::ATTSGridManager()
 {
@@ -14,12 +18,23 @@ ATTSGridManager::ATTSGridManager()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GridHolder = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("GridHolder"));
+	
+	if (!Instance)
+	{
+		Instance = this;
+	}
 }
 
 // Called when the game starts or when spawned
 void ATTSGridManager::BeginPlay()
 {
 	Super::BeginPlay();
+
+	
+	PlayerController = GetWorld()->GetFirstPlayerController();
+
+	if (DefaultTileMesh)
+		GridHolder->GetStaticMesh()->SetMaterial(0,DefaultTileMesh->GetMaterial(0));
 }
 
 // Called every frame
@@ -144,7 +159,8 @@ void ATTSGridManager::HandleHits(
 	if (bool bCanCreateTile = DetermineTileCostAndValidity(Hits, TileCost))
 	{
 		ListOfTransforms.Add(LocalTransform);
-		AddTileToMaps(TileIndex, LocalTransform.GetLocation(), TileCost);
+		FVector tileCenter = TileObjLocation + FVector(TileXSize / 2, TileYSize / 2,TileZSize );
+		AddTileToMaps(TileIndex, tileCenter, TileCost);
 	}
 }
 
@@ -179,19 +195,33 @@ TArray<FVector> ATTSGridManager::ConvertToGridIndexesLocation(TArray<int32> Inde
 	TArray<FVector> GridIndexes;
 	for (int32 Index : Indexes)
 	{
-		FVector NewLocation = *GridLocations.Find(Index) + offset;
+		FVector NewLocation = GridData.Find(Index)->TileLocation + offset;
 		GridIndexes.Add(NewLocation);
 	}
 	return GridIndexes;
 }
 
-int32 ATTSGridManager::ConvertGridCoordsToGridIndex(FVector Coord) const
-{
-	// Calcul de l'index X et Y
-	int32 IndexX = FMath::FloorToInt(Coord.X / TileXSize);
-	int32 IndexY = FMath::FloorToInt(Coord.Y / TileYSize);
+//	int32 Index = int32 Index = GridZ * (GridSize.X * GridSize.Y) + GridY * SizeX + GridX;
 
-	return (IndexY * GridSize.X) + IndexX;
+
+int32 ATTSGridManager::ConvertGridCoordsToGridIndex(const FVector& Coord) const
+{
+	
+	// Calculer les coordonnées de la grille en fonction de la taille de la case
+	int32 X = FMath::FloorToInt(Coord.X / TileXSize); 
+	int32 Y = FMath::FloorToInt(Coord.Y / TileYSize); 
+	int32 Z = FMath::FloorToInt(Coord.Z / TileZSize); 
+
+
+	int32 GridIndex = Y * GridSize.X + X;
+	int32 test = GridSize.X;
+
+	if (X < 0 || X >= GridSize.X || Y < 0 || Y >= GridSize.Y)
+	{
+		return -1; 
+	}
+
+	return GridIndex;
 }
 
 FVector ATTSGridManager::GetTileLocationFromIndex(int32 Index, int32 Row, int32 Column) const
@@ -201,8 +231,25 @@ FVector ATTSGridManager::GetTileLocationFromIndex(int32 Index, int32 Row, int32 
 	return FVector(PosX, PosY, 0);
 }
 
+FVector2D ATTSGridManager::GetTilePosOnGridFromLocation(FVector TileLocation) const
+{
+	FVector LocationOnGrid = ConvertFromWorldToGrid(TileLocation);
+
+	int32 XIndex = FMath::FloorToInt(LocationOnGrid.X / TileXSize);
+	int32 YIndex = FMath::FloorToInt(LocationOnGrid.Y / TileYSize);
+
+	return  FIntPoint(XIndex, YIndex);
+}
+
+int32 ATTSGridManager::GetTileIndexFromLocation(FVector TileLocation)
+{
+	FVector LocationOnGrid = ConvertFromWorldToGrid(TileLocation);
+
+	return  ConvertGridCoordsToGridIndex(LocationOnGrid);
+}
+
 FVector ATTSGridManager::ConvertIndexToWorldPosition(int32 GridIndex, int32 IndexX,
-	int32 IndexZ, float HeightBetweenLevels) const
+                                                     int32 IndexZ, float HeightBetweenLevels) const
 {
 	float X = ((GridIndex / IndexX) % IndexX) * TileXSize;
 	float Y = (GridIndex % IndexX) * TileYSize;
@@ -221,37 +268,37 @@ void ATTSGridManager::FindAndStoreTileScale()
 	TileXSize = TileYSize = DefaultTileMesh->GetBounds().BoxExtent.X * 2;
 }
 
-FVector ATTSGridManager::GetOffsetWorldLocationAtIndex(int32 GridIndex, float offset)
+FVector ATTSGridManager::GetOffsetWorldLocationAtIndex(int32 GridIndex, float Offset)
 {
-	FVector* Location = GridLocations.Find(GridIndex);
+	FVector Location = GridData.Find(GridIndex)->TileLocation;
 
-	return GetActorTransform().TransformPosition(FVector(Location->X, Location->Y, Location->Z + offset));
+	return GetActorTransform().TransformPosition(FVector(Location.X, Location.Y, Location.Z + Offset));
 }
 
 FVector ATTSGridManager::GetTileLocationFromMap(int32 Index) const
 {
-	return *GridLocations.Find(Index);
+	if (!GridData.Contains(Index))
+		return ErrorVector;
+	
+	return GridData.Find(Index)->TileLocation;
 }
 
 int32 ATTSGridManager::GetTileCostFromMap(int32 Index) const
 {
-	return *GridCost.Find(Index);
+	if (!GridData.Contains(Index))
+		return ErrorInt;
+	
+	return GridData.Find(Index)->TileCost;
 }
 
 void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, int32 TileCost)
 {
-	AddTileToLocationMap(GridIndex,TileLocation);
-	AddTileCostToCostMap(GridIndex,TileCost);
-}
-
-void ATTSGridManager::AddTileToLocationMap(int32 TileIndex, FVector TileLocation)
-{
-	GridLocations.Add(TileIndex, TileLocation);
-}
-
-void ATTSGridManager::AddTileCostToCostMap(int32 TileIndex, int32 TileCost)
-{
-	GridCost.Add(TileIndex, TileCost);
+	FTileData TileData;
+	TileData.TileIndex = GridIndex;
+	TileData.TileLocation = TileLocation;
+	TileData.TileCost = TileCost;
+	
+	GridData.Add(GridIndex, TileData);
 }
 
 bool ATTSGridManager::CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal)
@@ -260,16 +307,18 @@ bool ATTSGridManager::CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32
 		return GetDistanceBtwTwoTiles_Manhattan(TileAIndex, TileBIndex) <= MaxDistance;
 	else
 		return GetDistanceBtwTwoTiles_Euclidienne(TileAIndex, TileBIndex) <= MaxDistance;
-		
 }
 
 float ATTSGridManager::GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex, int32 TileBIndex)
 {
-	if (GridLocations.Find(TileAIndex) == nullptr || GridLocations.Find(TileBIndex) == nullptr)
+	FTileData* TileAData = GridData.Find(TileAIndex);
+	FTileData* TileBData = GridData.Find(TileBIndex);
+	
+	if (TileAData == nullptr || TileBData == nullptr)
 		return -1;
 	
-	FVector TileAPos = *GridLocations.Find(TileAIndex);
-	FVector TileBPos = *GridLocations.Find(TileBIndex);
+	FVector TileAPos = TileAData->TileLocation;
+	FVector TileBPos = TileBData->TileLocation;
 
 	return  FMath::Abs(TileBPos.X - TileAPos.X) +
 			FMath::Abs(TileBPos.Y - TileAPos.Y) +
@@ -278,18 +327,63 @@ float ATTSGridManager::GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex, int32 
 
 float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int32 TileBIndex)
 {
-	if (GridLocations.Find(TileAIndex) == nullptr || GridLocations.Find(TileBIndex) == nullptr)
+	FTileData* TileAData = GridData.Find(TileAIndex);
+	FTileData* TileBData = GridData.Find(TileBIndex);
+	
+	if (TileAData == nullptr || TileBData == nullptr)
 		return -1;
 
-	FVector TileAPos = *GridLocations.Find(TileAIndex);
-	FVector TileBPos = *GridLocations.Find(TileBIndex);
+	FVector TileAPos = TileAData->TileLocation;
+	FVector TileBPos = TileBData->TileLocation;
 	
 	float Distance = FVector::Dist(TileAPos, TileBPos);
 
 	return FMath::RoundToInt(Distance);
 }
 
-TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal)
+void ATTSGridManager::UpdateTileState(int32 TileIndex, ETileState StateToAdd, bool RemoveState)
+{
+	if (RemoveState)
+		RemoveTileState(TileIndex, StateToAdd);
+	else
+		AddTileState(TileIndex, StateToAdd);
+}
+
+FTileData ATTSGridManager::GetTileDataFromIndex(int32 Index) const
+{
+	if (!GridData.Contains(Index))
+		return FTileData();
+	return *GridData.Find(Index);
+}
+
+int32 ATTSGridManager::GetTileAmountOfStateFromIndex(int32 Index)
+{
+	if (FTileData* CurrentTileData = GridData.Find(Index))
+	{
+		return CurrentTileData->TileState.Num();
+	}
+	return -1;
+}
+
+void ATTSGridManager::AddTileState(const int32 TileIndex, const ETileState StateToAdd)
+{
+	if (FTileData* CurrentTileData = GridData.Find(TileIndex))
+	{
+		CurrentTileData->TileState.AddUnique(StateToAdd);
+		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("[Debug] [ATTSPlayerAction] [AddTileState]-> %d size num :: %d"), TileIndex, CurrentTileData->TileState.Num()));
+	}
+}
+
+void ATTSGridManager::RemoveTileState(const int32 TileIndex, const ETileState StateToAdd)
+{
+	if (FTileData* CurrentTileData = GridData.Find(TileIndex))
+	{
+		CurrentTileData->TileState.Remove(StateToAdd);
+		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("[Debug] [ATTSPlayerAction] [RemoveTileState]-> %d size num :: %d"), TileIndex, CurrentTileData->TileState.Num()));
+	}
+}
+
+TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(const int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal)
 {
 	TArray<int32> Neighbors;
 
@@ -323,6 +417,74 @@ TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(int32 TileIndex,const i
 	}
 
 	return Neighbors;
+}
+
+FVector ATTSGridManager::GetCursorLocationOnGrid() const
+{
+	FVector WorldLocation, WorldDirection;
+	
+	if (!PlayerController)
+	{
+		return ErrorVector;
+	}
+	
+	FHitResult HitResult;
+	const ETraceTypeQuery TraceType = UEngineTypes::ConvertToTraceType(ECC_GRID);
+
+	bool bHit = PlayerController->GetHitResultUnderCursorByChannel(TraceType, false, HitResult);
+
+	if (bHit)
+	{
+		return HitResult.Location;
+	}
+
+	if (PlayerController->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+	{
+		// Calculer une ligne très éloignée pour l'intersection
+		FVector LineEnd = WorldLocation + (WorldDirection * 999999.0f);
+		FVector Intersection;
+		float Value;
+
+		FPlane MyPlane = FPlane(GetActorLocation(), FVector(0,0,1));
+
+		bHit = UKismetMathLibrary::LinePlaneIntersection(
+			WorldLocation,    // Début de la ligne
+			LineEnd,          // Fin de la ligne
+			MyPlane,       // Résultat de l'intersection
+			Value,
+			Intersection
+		);
+
+		if (bHit)
+			return Intersection;
+		
+		return ErrorVector;
+	}
+	return ErrorVector;
+
+}
+
+FVector2D ATTSGridManager::GetTileGridPosUnderCursor()
+{
+	const FVector CursorLocation = GetCursorLocationOnGrid();
+	return GetTilePosOnGridFromLocation(CursorLocation);
+}
+
+int32 ATTSGridManager::GetTileIndexUnderCursor()
+{
+	const FVector CursorLocation = GetCursorLocationOnGrid();
+	int32 TileIndex = GetTileIndexFromLocation(CursorLocation);
+	UE_LOG(LogTemp, Warning, TEXT("[Debug] [GridManager] [GetTileIndexUnderCursor]-> CursorLocation :: %s"), *CursorLocation.ToString());
+
+	return TileIndex;
+}
+
+
+
+FVector ATTSGridManager::GetTileLocationUnderCursor()
+{
+	int32 TileIndex = GetTileIndexUnderCursor();
+	return GetTileLocationFromMap(TileIndex);
 }
 
 
