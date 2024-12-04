@@ -8,7 +8,6 @@
 #include "Tiles/TTSTileModifier.h"
 #include "TTShooter/TTShooter.h"
 
-ATTSGridManager* ATTSGridManager::Instance = nullptr;
 
 //ATTSGridManager* ATTSGridManager::Instance = nullptr;
 // Sets default values
@@ -18,11 +17,6 @@ ATTSGridManager::ATTSGridManager()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GridHolder = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("GridHolder"));
-	
-	if (!Instance)
-	{
-		Instance = this;
-	}
 }
 
 // Called when the game starts or when spawned
@@ -100,6 +94,52 @@ void ATTSGridManager::SpawnGridFromWorld()
 		GridHolder->AddInstances(ListOfTransforms, false);
 }
 
+void ATTSGridManager::UpdateTileVisual(int32 TileIndex)
+{
+	if (FTileData* TileToUpdate = GridData.Find(TileIndex))
+	{
+		float filled = 0;
+		FColor Color = GetTileVisualDependingState(TileToUpdate->TileState, &filled);
+
+		GridHolder->SetCustomDataValue(TileIndex,0,Color.R/10);
+		GridHolder->SetCustomDataValue(TileIndex,1,Color.G/10);
+		GridHolder->SetCustomDataValue(TileIndex,2,Color.B/10);
+		GridHolder->SetCustomDataValue(TileIndex,3,filled/5);
+	}
+}
+
+FColor ATTSGridManager::GetTileVisualDependingState(TArray<ETileState> TileStates, float* IsFill)
+{
+	if (TileStates.Num() < 0 || TileStates.IsEmpty())
+		return FColor::Black;
+
+	FColor Color;
+
+	for (ETileState Status : TileStates)
+	{
+		switch (Status)
+		{
+		case ETileState::NONE:
+			Color = FColor::Black;
+			*IsFill = 0;
+			break;
+		case ETileState::HOVERED:
+			Color = FColor::Blue;
+			*IsFill = 0.8;
+			break;
+		case ETileState::SELECTED:
+			Color = FColor::Green;
+			*IsFill = 1;
+			break;
+		default:
+			Color = FColor::Black;
+			*IsFill = 0;
+			break;
+		}
+	}
+	return Color;
+}
+
 void ATTSGridManager::ProcessTile(
 	int32 TileIndex,
 	const FVector& TilePosition,
@@ -160,7 +200,7 @@ void ATTSGridManager::HandleHits(
 	{
 		ListOfTransforms.Add(LocalTransform);
 		FVector tileCenter = TileObjLocation + FVector(TileXSize / 2, TileYSize / 2,TileZSize );
-		AddTileToMaps(TileIndex, tileCenter, TileCost);
+		AddTileToMaps(TileIndex, tileCenter,LocalTransform, TileCost);
 	}
 }
 
@@ -291,11 +331,12 @@ int32 ATTSGridManager::GetTileCostFromMap(int32 Index) const
 	return GridData.Find(Index)->TileCost;
 }
 
-void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, int32 TileCost)
+void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, FTransform TileTransform, int32 TileCost)
 {
 	FTileData TileData;
 	TileData.TileIndex = GridIndex;
 	TileData.TileLocation = TileLocation;
+	TileData.TileTransform = TileTransform;
 	TileData.TileCost = TileCost;
 	
 	GridData.Add(GridIndex, TileData);
@@ -347,6 +388,8 @@ void ATTSGridManager::UpdateTileState(int32 TileIndex, ETileState StateToAdd, bo
 		RemoveTileState(TileIndex, StateToAdd);
 	else
 		AddTileState(TileIndex, StateToAdd);
+
+	UpdateTileVisual(TileIndex);
 }
 
 FTileData ATTSGridManager::GetTileDataFromIndex(int32 Index) const
@@ -370,7 +413,6 @@ void ATTSGridManager::AddTileState(const int32 TileIndex, const ETileState State
 	if (FTileData* CurrentTileData = GridData.Find(TileIndex))
 	{
 		CurrentTileData->TileState.AddUnique(StateToAdd);
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("[Debug] [ATTSPlayerAction] [AddTileState]-> %d size num :: %d"), TileIndex, CurrentTileData->TileState.Num()));
 	}
 }
 
@@ -379,7 +421,6 @@ void ATTSGridManager::RemoveTileState(const int32 TileIndex, const ETileState St
 	if (FTileData* CurrentTileData = GridData.Find(TileIndex))
 	{
 		CurrentTileData->TileState.Remove(StateToAdd);
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("[Debug] [ATTSPlayerAction] [RemoveTileState]-> %d size num :: %d"), TileIndex, CurrentTileData->TileState.Num()));
 	}
 }
 
@@ -474,7 +515,6 @@ int32 ATTSGridManager::GetTileIndexUnderCursor()
 {
 	const FVector CursorLocation = GetCursorLocationOnGrid();
 	int32 TileIndex = GetTileIndexFromLocation(CursorLocation);
-	UE_LOG(LogTemp, Warning, TEXT("[Debug] [GridManager] [GetTileIndexUnderCursor]-> CursorLocation :: %s"), *CursorLocation.ToString());
 
 	return TileIndex;
 }
@@ -484,9 +524,14 @@ int32 ATTSGridManager::GetTileIndexUnderCursor()
 FVector ATTSGridManager::GetTileLocationUnderCursor()
 {
 	int32 TileIndex = GetTileIndexUnderCursor();
+
 	return GetTileLocationFromMap(TileIndex);
 }
 
+FVector ATTSGridManager::GetTileLocationUnderCursor(int32 TileIndex)
+{
+	return GetTileLocationFromMap(TileIndex);
+}
 
 
 

@@ -30,10 +30,14 @@ struct FTileData
     int32 TileCost = 0;
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	FTransform TileTransform = FTransform();
+	
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 	FVector TileLocation = FVector();
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 	TArray<ETileState> TileState ;
+	
 };
 
 UCLASS()
@@ -68,7 +72,6 @@ protected:
 	TMap<int32, FTileData> GridData;
 
 private:
-	static ATTSGridManager* Instance;
 	APlayerController* PlayerController;
 	
 	float TileXSize = 100;
@@ -78,19 +81,6 @@ private:
 	int32 const ErrorInt = -1111;
 
 public:
-
-	static ATTSGridManager* GetInstance(UWorld* World)
-	{
-		if (!Instance)
-		{
-			if (World)
-			{
-				Instance = World->SpawnActor<ATTSGridManager>();
-			}
-		}
-		return Instance;
-	}
-	
 	FVector GetErrorVector() const
 	{
 		return ErrorVector;
@@ -124,11 +114,13 @@ private :
 	UFUNCTION(BlueprintCallable, Category="Init Grid")
 	void SpawnGridFromWorld();
 
+	void UpdateTileVisual(int32 TileIndex);
+	FColor GetTileVisualDependingState(TArray<ETileState> TileStates,float* IsFill);
+
 	//Creation grid Methods
 	void ProcessTile(int32 TileIndex, const FVector& TilePosition,	const FCollisionShape& CapsuleShape, const FCollisionQueryParams& QueryParams,	FVector HalfPos, TArray<FTransform>& ListOfTransforms);
 	void HandleHits(int32 TileIndex, const TArray<FHitResult>& Hits, TArray<FTransform>& ListOfTransforms, const FVector& TilePosition);
 	bool DetermineTileCostAndValidity(const TArray<FHitResult>& Hits, int32& OutTileCost);
-
 	
 	// Convert Location and Grid
 	FVector ConvertFromGridToWorld(FVector Entry) const;
@@ -142,8 +134,6 @@ private :
 	// Getter On World And Grid
 	FVector GetTileLocationFromIndex(int32 Index, int32 Row, int32 Column) const;
 	FVector2d GetTilePosOnGridFromLocation(FVector TileLocation) const;
-	UFUNCTION(BlueprintCallable, Category="Cursor")
-	int32 GetTileIndexFromLocation(FVector TileLocation);
 	FVector GetOffsetWorldLocationAtIndex(int32 GridIndex, float Offset);
 
 	//Map Gettter
@@ -151,7 +141,7 @@ private :
 	int32 GetTileCostFromMap(int32 Index) const;
 	
 	// Map Function
-	void AddTileToMaps(int32 GridIndex, FVector TileLocation, int32 TileCost);
+	void AddTileToMaps(int32 GridIndex, FVector TileLocation,FTransform TileTransform, int32 TileCost);
 	void AddTileToLocationMap(int32 TileIndex, FVector TileLocation);
 	void AddTileCostToCostMap(int32 TileIndex, int32 TileCost);
 
@@ -176,6 +166,10 @@ private :
 	FVector GetTileLocationUnderCursor();
 
 public:
+
+	int32 GetTileIndexFromLocation(FVector TileLocation);
+	FVector GetTileLocationUnderCursor(int32 TileIndex);
+	
 	// Mouse detection
 	UFUNCTION(BlueprintCallable, Category="Cursor")
 	int32 GetTileIndexUnderCursor();
