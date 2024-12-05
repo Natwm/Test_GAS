@@ -4,7 +4,6 @@
 #include "Grid/TTSGridManager.h"
 
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "Tiles/TTSTileModifier.h"
 #include "TTShooter/TTShooter.h"
 
@@ -23,9 +22,6 @@ ATTSGridManager::ATTSGridManager()
 void ATTSGridManager::BeginPlay()
 {
 	Super::BeginPlay();
-
-	
-	PlayerController = GetWorld()->GetFirstPlayerController();
 
 	if (DefaultTileMesh)
 		GridHolder->GetStaticMesh()->SetMaterial(0,DefaultTileMesh->GetMaterial(0));
@@ -135,6 +131,10 @@ FColor ATTSGridManager::GetTileVisualDependingState(TArray<ETileState> TileState
 			Color = FColor::Black;
 			*IsFill = 0;
 			break;
+		case ETileState::NEIGHBOUR:
+			Color = FColor::Orange;
+			*IsFill = 0.5f;
+			break;
 		}
 	}
 	return Color;
@@ -196,7 +196,7 @@ void ATTSGridManager::HandleHits(
 
 	int32 TileCost = 1;
 
-	if (bool bCanCreateTile = DetermineTileCostAndValidity(Hits, TileCost))
+	if (DetermineTileCostAndValidity(Hits, TileCost))
 	{
 		ListOfTransforms.Add(LocalTransform);
 		FVector tileCenter = TileObjLocation + FVector(TileXSize / 2, TileYSize / 2,TileZSize );
@@ -250,11 +250,9 @@ int32 ATTSGridManager::ConvertGridCoordsToGridIndex(const FVector& Coord) const
 	// Calculer les coordonnées de la grille en fonction de la taille de la case
 	int32 X = FMath::FloorToInt(Coord.X / TileXSize); 
 	int32 Y = FMath::FloorToInt(Coord.Y / TileYSize); 
-	int32 Z = FMath::FloorToInt(Coord.Z / TileZSize); 
-
-
+	//int32 Z = FMath::FloorToInt(Coord.Z / TileZSize); 
+	
 	int32 GridIndex = Y * GridSize.X + X;
-	int32 test = GridSize.X;
 
 	if (X < 0 || X >= GridSize.X || Y < 0 || Y >= GridSize.Y)
 	{
@@ -338,6 +336,8 @@ void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, FTran
 	TileData.TileLocation = TileLocation;
 	TileData.TileTransform = TileTransform;
 	TileData.TileCost = TileCost;
+
+	TileData.TileNeighbour = GetSelectedTilesNeighbors(GridIndex,GridSize.X,GridSize.X,false);
 	
 	GridData.Add(GridIndex, TileData);
 }
@@ -385,9 +385,33 @@ float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int3
 void ATTSGridManager::UpdateTileState(int32 TileIndex, ETileState StateToAdd, bool RemoveState)
 {
 	if (RemoveState)
+	{
 		RemoveTileState(TileIndex, StateToAdd);
+		if (StateToAdd == ETileState::SELECTED)
+		{
+			TArray<int32> neighbour = GridData.Find(TileIndex)->TileNeighbour;
+			for (auto Neighbour : neighbour)
+			{
+				RemoveTileState(Neighbour, ETileState::NEIGHBOUR);
+				UpdateTileVisual(Neighbour);
+			}
+		}
+	}
 	else
+	{
 		AddTileState(TileIndex, StateToAdd);
+
+		if (StateToAdd == ETileState::SELECTED)
+		{
+			TArray<int32> neighbour = GridData.Find(TileIndex)->TileNeighbour;
+			for (auto Neighbour : neighbour)
+			{
+				AddTileState(Neighbour, ETileState::NEIGHBOUR);
+				UpdateTileVisual(Neighbour);
+
+			}
+		}
+	}
 
 	UpdateTileVisual(TileIndex);
 }
@@ -424,7 +448,7 @@ void ATTSGridManager::RemoveTileState(const int32 TileIndex, const ETileState St
 	}
 }
 
-TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(const int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal)
+TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(const int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal = false)
 {
 	TArray<int32> Neighbors;
 
@@ -462,7 +486,7 @@ TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(const int32 TileIndex,c
 
 FVector ATTSGridManager::GetCursorLocationOnGrid() const
 {
-	FVector WorldLocation, WorldDirection;
+	/*FVector WorldLocation, WorldDirection;
 	
 	if (!PlayerController)
 	{
@@ -500,7 +524,7 @@ FVector ATTSGridManager::GetCursorLocationOnGrid() const
 			return Intersection;
 		
 		return ErrorVector;
-	}
+	}*/
 	return ErrorVector;
 
 }

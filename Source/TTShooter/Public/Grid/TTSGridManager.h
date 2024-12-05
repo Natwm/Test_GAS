@@ -15,7 +15,8 @@ enum class ETileState : uint8
 {
 	NONE,
 	HOVERED,
-	SELECTED
+	SELECTED,
+	NEIGHBOUR
 };
 
 USTRUCT(BlueprintType, Blueprintable)
@@ -37,7 +38,9 @@ struct FTileData
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 	TArray<ETileState> TileState ;
-	
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	TArray<int32> TileNeighbour ;
 };
 
 UCLASS()
@@ -71,9 +74,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Map")
 	TMap<int32, FTileData> GridData;
 
-private:
-	APlayerController* PlayerController;
-	
+private:	
 	float TileXSize = 100;
 	float TileYSize = 100;
 	float TileZSize = 100;
@@ -158,11 +159,8 @@ private :
 	TArray<int32> GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal);
 
 	// Mouse detection
-	UFUNCTION(BlueprintCallable, Category="Cursor")
 	FVector GetCursorLocationOnGrid() const;
-	UFUNCTION(BlueprintCallable, Category="Cursor")
 	FVector2D GetTileGridPosUnderCursor();
-	UFUNCTION(BlueprintCallable, Category="Cursor")
 	FVector GetTileLocationUnderCursor();
 
 public:
