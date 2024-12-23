@@ -36,6 +36,9 @@ private:
 	UPROPERTY(EditAnywhere, Category= "Input" )
 	TObjectPtr<UInputAction> ClickSelection;
 
+	UPROPERTY(EditAnywhere, Category= "Input" )
+	TObjectPtr<UInputAction> ClickInfoSelection;
+
 	//Reference
 	TObjectPtr<ATTSGridManager> Grid;
 	
@@ -54,4 +57,5 @@ private:
 private:
 	void CursorTrace();
 	void SelectLocationToAction();
+	void PrintTileNumber();
 };

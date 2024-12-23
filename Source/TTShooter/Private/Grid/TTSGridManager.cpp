@@ -4,6 +4,7 @@
 #include "Grid/TTSGridManager.h"
 
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "Grid/TTSActorPathFinding.h"
 #include "Tiles/TTSTileModifier.h"
 #include "TTShooter/TTShooter.h"
 
@@ -134,6 +135,12 @@ FColor ATTSGridManager::GetTileVisualDependingState(TArray<ETileState> TileState
 		case ETileState::NEIGHBOUR:
 			Color = FColor::Orange;
 			*IsFill = 0.5f;
+			break;
+		case ETileState::NOTWALKABLE:
+			break;
+		case ETileState::PATH:
+			Color = FColor::Red;
+			*IsFill = 0;
 			break;
 		}
 	}
@@ -362,8 +369,25 @@ float ATTSGridManager::GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex, int32 
 	FVector TileBPos = TileBData->TileLocation;
 
 	return  FMath::Abs(TileBPos.X - TileAPos.X) +
-			FMath::Abs(TileBPos.Y - TileAPos.Y) +
-			FMath::Abs(TileBPos.Z - TileAPos.Z);
+			FMath::Abs(TileBPos.Y - TileAPos.Y) ;
+			//FMath::Abs(TileBPos.Z - TileAPos.Z);
+}
+
+float ATTSGridManager::GetDistanceBtwTwoTiles_ManhattanWithCost(int32 TileAIndex, int32 TileBIndex)
+{
+	int32 TotalCost = GetDistanceBtwTwoTiles_Manhattan(TileAIndex,TileBIndex)/100;
+	FTileData* TileData = GridData.Find(TileBIndex);
+	if (TileData != nullptr)
+	{
+		TotalCost += TileData->TileCost;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid tile index in path: %d"), TileBIndex);
+		return -1;
+	}
+	
+	return TotalCost;
 }
 
 float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int32 TileBIndex)
@@ -389,11 +413,11 @@ void ATTSGridManager::UpdateTileState(int32 TileIndex, ETileState StateToAdd, bo
 		RemoveTileState(TileIndex, StateToAdd);
 		if (StateToAdd == ETileState::SELECTED)
 		{
-			TArray<int32> neighbour = GridData.Find(TileIndex)->TileNeighbour;
-			for (auto Neighbour : neighbour)
+			TArray<FPathData> neighbour = GridPathFinding->GetValidTileNeighbors(TileIndex);
+			for (FPathData Neighbour : neighbour)
 			{
-				RemoveTileState(Neighbour, ETileState::NEIGHBOUR);
-				UpdateTileVisual(Neighbour);
+				RemoveTileState(Neighbour.Index, ETileState::NEIGHBOUR);
+				UpdateTileVisual(Neighbour.Index);
 			}
 		}
 	}
@@ -403,11 +427,11 @@ void ATTSGridManager::UpdateTileState(int32 TileIndex, ETileState StateToAdd, bo
 
 		if (StateToAdd == ETileState::SELECTED)
 		{
-			TArray<int32> neighbour = GridData.Find(TileIndex)->TileNeighbour;
-			for (auto Neighbour : neighbour)
+			TArray<FPathData> neighbour = GridPathFinding->GetValidTileNeighbors(TileIndex);
+			for (FPathData Neighbour : neighbour)
 			{
-				AddTileState(Neighbour, ETileState::NEIGHBOUR);
-				UpdateTileVisual(Neighbour);
+				AddTileState(Neighbour.Index, ETileState::NEIGHBOUR);
+				UpdateTileVisual(Neighbour.Index);
 
 			}
 		}
@@ -476,6 +500,9 @@ TArray<int32> ATTSGridManager::GetSelectedTilesNeighbors(const int32 TileIndex,c
 			{
 				// Calculer l'index du voisin
 				int32 NeighborIndex = NeighborY * GridWidth + NeighborX;
+
+//				FPathData Neighbor = FPathData(NeighborIndex,0,0,0,0);
+				
 				Neighbors.Add(NeighborIndex);
 			}
 		}
@@ -558,5 +585,12 @@ FVector ATTSGridManager::GetTileLocationUnderCursor(int32 TileIndex)
 }
 
 
-
+bool ATTSGridManager::IsTileWalkable(int32 TileIndex)
+{
+	FTileData* Data = GridData.Find(TileIndex);
+	if (Data->TileCost > 99 || Data->TileCost < 0 || Data->TileState.Contains(ETileState::NOTWALKABLE))
+		return false;
+	
+	return true;
+}
 

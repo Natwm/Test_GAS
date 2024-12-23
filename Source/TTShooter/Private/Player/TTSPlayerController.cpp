@@ -4,6 +4,7 @@
 #include "Player/TTSPlayerController.h"
 
 #include "EnhancedInputSubsystems.h"
+#include "Grid/TTSActorPathFinding.h"
 #include "Grid/TTSGridManager.h"
 #include "Input/TTSInputComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -49,6 +50,7 @@ void ATTSPlayerController::SetupInputComponent()
 	UTTSInputComponent* AuraInputComponent = CastChecked<UTTSInputComponent>(InputComponent);
 
 	AuraInputComponent->BindAction(ClickSelection, ETriggerEvent::Triggered,this, &ATTSPlayerController::SelectLocationToAction);
+	AuraInputComponent->BindAction(ClickInfoSelection, ETriggerEvent::Triggered,this, &ATTSPlayerController::PrintTileNumber);
 }
 
 void ATTSPlayerController::CursorTrace()
@@ -76,7 +78,20 @@ void ATTSPlayerController::CursorTrace()
 
 void ATTSPlayerController::SelectLocationToAction()
 {
-	if (!bCanDoMultipleSelection)
+	if ( Grid->GetPathFinding()->StartIndex < 0)
+		Grid->GetPathFinding()->StartIndex = CurrentHoveredTileIndex;
+	else if (Grid->GetPathFinding()->StartIndex != CurrentHoveredTileIndex)
+	{
+		Grid->GetPathFinding()->TargetIndex = CurrentHoveredTileIndex;
+		TArray<int32> a = Grid->GetPathFinding()->FindPath(Grid->GetPathFinding()->StartIndex,Grid->GetPathFinding()->TargetIndex,false,Grid);
+		a.Add(CurrentHoveredTileIndex);
+		a.Add(Grid->GetPathFinding()->StartIndex);
+		for (auto A : a)
+		{
+			Grid->UpdateTileState(A, ETileState::PATH, false);
+		}
+	}
+	/*if (!bCanDoMultipleSelection)
 	{
 		for (int32 TileIndex : SelectedTileIndex)
 		{
@@ -89,6 +104,12 @@ void ATTSPlayerController::SelectLocationToAction()
 	for (int32 TileIndex : SelectedTileIndex)
 	{
 		Grid->UpdateTileState(TileIndex, ETileState::SELECTED);
-	}
+	}*/
 
+}
+
+void ATTSPlayerController::PrintTileNumber()
+{
+	CurrentHoveredTileIndex;
+	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("World delta for current frame equals %d"), CurrentHoveredTileIndex));
 }

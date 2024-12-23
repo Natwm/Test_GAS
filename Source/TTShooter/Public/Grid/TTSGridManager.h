@@ -6,9 +6,12 @@
 #include "GameFramework/Actor.h"
 #include "TTSGridManager.generated.h"
 
+struct FPathData;
+class TTSPathFinding;
 class UHierarchicalInstancedStaticMeshComponent;
 class UMaterialInterface;
 class APlayerController;
+class ATTSActorPathFinding;
 
 UENUM(Blueprintable)
 enum class ETileState : uint8
@@ -16,7 +19,9 @@ enum class ETileState : uint8
 	NONE,
 	HOVERED,
 	SELECTED,
-	NEIGHBOUR
+	NEIGHBOUR,
+	NOTWALKABLE,
+	PATH
 };
 
 USTRUCT(BlueprintType, Blueprintable)
@@ -62,17 +67,36 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configuration")
 	FVector2D GridSize;
 
+public:
+	[[nodiscard]] FVector2D GetGridSize() const
+	{
+		return GridSize;
+	}
+
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configuration|Physic")
 	float CastRadius = 50.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configuration|Physic")
 	float CastHalfHeight = 50.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configuration|Flag")
 	bool bShowCast;
-	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Configuration|PathFinding")
+	TObjectPtr<ATTSActorPathFinding> GridPathFinding;
 	
 	//MAP
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Map")
 	TMap<int32, FTileData> GridData;
+
+public:
+	[[nodiscard]] TMap<int32, FTileData> GetGridData() const
+	{
+		return GridData;
+	}
+
+	TObjectPtr<ATTSActorPathFinding> GetPathFinding() const
+	{
+		return GridPathFinding;
+	}
 
 private:	
 	float TileXSize = 100;
@@ -150,11 +174,6 @@ private :
 	void AddTileState(int32 TileIndex, ETileState StateToAdd);
 	void RemoveTileState(int32 TileIndex, ETileState StateToAdd);
 	
-	// Calcule de distance
-	bool CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal);
-	float GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex,int32 TileBIndex);
-	float GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex,int32 TileBIndex);
-	
 	// Calcule des voisins
 	TArray<int32> GetSelectedTilesNeighbors(int32 TileIndex,const int32 GridWidth, const int32 GridHeight, bool bCanDoDiagonal);
 
@@ -176,4 +195,11 @@ public:
 	void UpdateTileState(int32 TileIndex, ETileState StateToAdd, bool RemoveState = false);
 	FTileData GetTileDataFromIndex(int32 Index) const;
 	int32 GetTileAmountOfStateFromIndex(int32 Index);
+	bool IsTileWalkable(int32 TileIndex);
+
+	// Calcule de distance
+	bool CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal);
+	float GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex,int32 TileBIndex);
+	float GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex,int32 TileBIndex);
+	float GetDistanceBtwTwoTiles_ManhattanWithCost(int32 TileAIndex,int32 TileBIndex);
 };
