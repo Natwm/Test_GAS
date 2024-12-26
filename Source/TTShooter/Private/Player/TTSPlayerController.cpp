@@ -56,7 +56,7 @@ void ATTSPlayerController::SetupInputComponent()
 
 void ATTSPlayerController::CursorTraceTileUnderCursor()
 {
-	GetHitResultUnderCursor(ECC_UNIT, false, Hit);
+	GetHitResultUnderCursor(ECC_GRID, false, Hit);
 	if(!Hit.bBlockingHit)
 		return;
 	
@@ -79,20 +79,29 @@ void ATTSPlayerController::CursorTraceTileUnderCursor()
 
 void ATTSPlayerController::CursorTraceUnitUnderCursor()
 {
-	GetHitResultUnderCursor(ECC_GRID, false, Hit);
+	GetHitResultUnderCursor(ECC_UNIT, false, Hit);
 	if(!Hit.bBlockingHit)
 		return;
-	
-	int32 TargetedTile = Grid->GetTileIndexFromLocation(Hit.Location);
+
+	FVector a = Hit.HitObjectHandle.GetLocation();
+	int32 TargetedTile = Grid->GetTileIndexFromLocation(a);
 
 	if (CurrentHoveredUnitIndex == TargetedTile)
 	{
 		return;
 	}
-	
-	//Add State Hovered on the last hovered Tile
-	CurrentHoveredUnitIndex =  TargetedTile;
 
+	if (auto unit = Grid->GetTileUnitFromIndex(TargetedTile) )
+	{
+		if (CurrentHoveredUnitIndex >=0)
+		{
+			unit->UnHighlightActor();
+		}
+		//Add State Hovered on the last hovered Tile
+		CurrentHoveredUnitIndex =  TargetedTile;
+		
+		Grid->GetTileUnitFromIndex(CurrentHoveredUnitIndex)->HighlightActor();
+	}
 }
 
 void ATTSPlayerController::SelectTileToAction()

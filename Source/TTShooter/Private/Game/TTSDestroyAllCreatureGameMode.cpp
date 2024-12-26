@@ -3,6 +3,8 @@
 
 #include "Game/TTSDestroyAllCreatureGameMode.h"
 
+#include "Character/TTSBaseCharacter.h"
+
 ATTSDestroyAllCreatureGameMode::ATTSDestroyAllCreatureGameMode()
 {
 	AllyTeamCharacters = TArray<ATTSBaseCharacter*>();

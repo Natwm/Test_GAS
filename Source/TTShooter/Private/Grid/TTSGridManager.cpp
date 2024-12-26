@@ -351,12 +351,12 @@ void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, FTran
 
 void ATTSGridManager::AddUnitToMap(int32 TileIndex, TObjectPtr<ATTSBaseCharacter> Unit)
 {
-	FTileData TileData = *GridData.Find(TileIndex);
-	TileData.UnitOnTile = Unit;
+	FTileData* TileData = GridData.Find(TileIndex);
+	TileData->UnitOnTile = Unit;
 
 	UE_LOG(LogTemp, Warning, TEXT("tile index: %d, tile unit: %s"), 
 				TileIndex, 
-				*TileData.UnitOnTile.GetName());	
+				*TileData->UnitOnTile.GetName());	
 }
 
 bool ATTSGridManager::CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal)

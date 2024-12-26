@@ -31,15 +31,61 @@ UAbilitySystemComponent* ATTSBaseCharacter::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+//Todo:: Update those methods don't seems to work
 void ATTSBaseCharacter::HighlightActor()
 {
-	GetMesh()->SetRenderCustomDepth(true);
-	GetMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
+	UMaterialInterface* Material = GetMesh()->GetMaterial(0); // 0 = premier slot de matériau
+	if (!Material)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No material found on the mesh component."));
+		return;
+	}
+
+	UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(Material);
+	if (!DynamicMaterial)
+	{
+		// Créer une instance dynamique du matériau
+		DynamicMaterial = UMaterialInstanceDynamic::Create(Material, GetMesh());
+		if (!DynamicMaterial)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Failed to create dynamic material instance."));
+			return;
+		}
+
+		// Assigner l'instance dynamique au composant
+		GetMesh()->SetMaterial(0, DynamicMaterial);
+	}
+
+	// Modifier la valeur du paramètre
+	DynamicMaterial->SetVectorParameterValue("Color Multiply", FVector(255,25,25));
 }
 
 void ATTSBaseCharacter::UnHighlightActor()
 {
-	GetMesh()->SetRenderCustomDepth(false);
+	UMaterialInterface* Material = GetMesh()->GetMaterial(0); // 0 = premier slot de matériau
+	if (!Material)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No material found on the mesh component."));
+		return;
+	}
+
+	UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(Material);
+	if (!DynamicMaterial)
+	{
+		// Créer une instance dynamique du matériau
+		DynamicMaterial = UMaterialInstanceDynamic::Create(Material, GetMesh());
+		if (!DynamicMaterial)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Failed to create dynamic material instance."));
+			return;
+		}
+
+		// Assigner l'instance dynamique au composant
+		GetMesh()->SetMaterial(0, DynamicMaterial);
+	}
+
+	// Modifier la valeur du paramètre
+	DynamicMaterial->SetVectorParameterValue("Color Multiply", FVector(0,0,25));
 }
 
 // Called when the game starts or when spawned
@@ -90,9 +136,10 @@ void ATTSBaseCharacter::SetCharacterOnGrid()
 {
 	ATTSGridManager* grid = Cast<ATTSGridManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ATTSGridManager::StaticClass()));
 	grid->SetCharacterOnGrid(this);
-	
-	ATTSDestroyAllCreatureGameMode* GameMode = Cast<ATTSDestroyAllCreatureGameMode>(GetWorld()->GetAuthGameMode());
-	GameMode->UpdateGridCharacterData(this,false,true);
+
+	//todo :: check error avec gamemode
+	//ATTSDestroyAllCreatureGameMode* GameMode = Cast<ATTSDestroyAllCreatureGameMode>(GetWorld()->GetAuthGameMode());
+	//GameMode->UpdateGridCharacterData(this,false,true);
 
 }
 

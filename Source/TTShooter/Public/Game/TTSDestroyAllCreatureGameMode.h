@@ -6,6 +6,7 @@
 #include "Game/TTSGameModeBase.h"
 #include "TTSDestroyAllCreatureGameMode.generated.h"
 
+class ATTSBaseCharacter;
 /**
  * 
  */
@@ -15,7 +16,7 @@ class TTSHOOTER_API ATTSDestroyAllCreatureGameMode : public ATTSGameModeBase
 	GENERATED_BODY()
 
 	ATTSDestroyAllCreatureGameMode();
-	private :
+private :
 	TArray<ATTSBaseCharacter*> AllyTeamCharacters;
 	TArray<ATTSBaseCharacter*> EnemyTeamCharacters;
 
