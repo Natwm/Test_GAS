@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "TTSGridManager.generated.h"
 
+class ATTSBaseCharacter;
 struct FPathData;
 class TTSPathFinding;
 class UHierarchicalInstancedStaticMeshComponent;
@@ -46,6 +47,9 @@ struct FTileData
 
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
 	TArray<int32> TileNeighbour ;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly)
+	TObjectPtr<ATTSBaseCharacter> UnitOnTile ;
 };
 
 UCLASS()
@@ -87,8 +91,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Map")
 	TMap<int32, FTileData> GridData;
 
+	
 public:
-	[[nodiscard]] TMap<int32, FTileData> GetGridData() const
+	TMap<int32, FTileData> GetGridData() const
 	{
 		return GridData;
 	}
@@ -167,8 +172,7 @@ private :
 	
 	// Map Function
 	void AddTileToMaps(int32 GridIndex, FVector TileLocation,FTransform TileTransform, int32 TileCost);
-	void AddTileToLocationMap(int32 TileIndex, FVector TileLocation);
-	void AddTileCostToCostMap(int32 TileIndex, int32 TileCost);
+	void AddUnitToMap(int32 TileIndex, TObjectPtr<ATTSBaseCharacter> Unit);
 
 	// Tile Function
 	void AddTileState(int32 TileIndex, ETileState StateToAdd);
@@ -184,6 +188,8 @@ private :
 
 public:
 
+	void SetCharacterOnGrid(TObjectPtr<ATTSBaseCharacter>Unit);
+	
 	int32 GetTileIndexFromLocation(FVector TileLocation);
 	FVector GetTileLocationUnderCursor(int32 TileIndex);
 	
@@ -194,6 +200,7 @@ public:
 	// Tile Function
 	void UpdateTileState(int32 TileIndex, ETileState StateToAdd, bool RemoveState = false);
 	FTileData GetTileDataFromIndex(int32 Index) const;
+	TObjectPtr<ATTSBaseCharacter> GetTileUnitFromIndex(int32 Index) const;
 	int32 GetTileAmountOfStateFromIndex(int32 Index);
 	bool IsTileWalkable(int32 TileIndex);
 
@@ -202,4 +209,8 @@ public:
 	float GetDistanceBtwTwoTiles_Manhattan(int32 TileAIndex,int32 TileBIndex);
 	float GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex,int32 TileBIndex);
 	float GetDistanceBtwTwoTiles_ManhattanWithCost(int32 TileAIndex,int32 TileBIndex);
+
+	//Position
+	FVector GetTilePositionFromUnitLocation(FVector UnitLocation);
+	
 };

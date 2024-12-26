@@ -13,7 +13,7 @@ class UAuraInputConfig;
 class UAuraAbilitySystemComponent;
 class UInputMappingContext;
 class UInputAction;
-class IEnemyInterface;
+class EnemyInterface;
 class USplineComponent;
 struct FInputActionValue;
 /**
@@ -44,6 +44,8 @@ private:
 	
 	//Tile Elements
 	int32 CurrentHoveredTileIndex = -1;
+	int32 CurrentHoveredUnitIndex = -1;
+	int32 SelectedUnitAtTileIndex = -1;
 	TArray<int32> SelectedTileIndex;
 	
 
@@ -55,7 +57,8 @@ private:
 	
 
 private:
-	void CursorTrace();
-	void SelectLocationToAction();
+	void CursorTraceTileUnderCursor();
+	void CursorTraceUnitUnderCursor();
+	void SelectTileToAction();
 	void PrintTileNumber();
 };
