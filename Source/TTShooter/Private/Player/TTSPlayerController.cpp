@@ -4,7 +4,7 @@
 #include "Player/TTSPlayerController.h"
 
 #include "EnhancedInputSubsystems.h"
-#include "Grid/TTSActorPathFinding.h"
+#include "Character/TTSBaseCharacter.h"
 #include "Grid/TTSGridManager.h"
 #include "Input/TTSInputComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -40,7 +40,8 @@ void ATTSPlayerController::BeginPlay()
 void ATTSPlayerController::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	CursorTrace();
+	CursorTraceTileUnderCursor();
+	CursorTraceUnitUnderCursor();
 }
 
 void ATTSPlayerController::SetupInputComponent()
@@ -49,13 +50,13 @@ void ATTSPlayerController::SetupInputComponent()
 
 	UTTSInputComponent* AuraInputComponent = CastChecked<UTTSInputComponent>(InputComponent);
 
-	AuraInputComponent->BindAction(ClickSelection, ETriggerEvent::Triggered,this, &ATTSPlayerController::SelectLocationToAction);
+	AuraInputComponent->BindAction(ClickSelection, ETriggerEvent::Triggered,this, &ATTSPlayerController::SelectTileToAction);
 	AuraInputComponent->BindAction(ClickInfoSelection, ETriggerEvent::Triggered,this, &ATTSPlayerController::PrintTileNumber);
 }
 
-void ATTSPlayerController::CursorTrace()
+void ATTSPlayerController::CursorTraceTileUnderCursor()
 {
-	GetHitResultUnderCursor(ECC_GRID, false, Hit);
+	GetHitResultUnderCursor(ECC_UNIT, false, Hit);
 	if(!Hit.bBlockingHit)
 		return;
 	
@@ -76,9 +77,33 @@ void ATTSPlayerController::CursorTrace()
 	UKismetSystemLibrary::DrawDebugSphere(GetWorld(),test,10,12);
 }
 
-void ATTSPlayerController::SelectLocationToAction()
+void ATTSPlayerController::CursorTraceUnitUnderCursor()
 {
-	if ( Grid->GetPathFinding()->StartIndex < 0)
+	GetHitResultUnderCursor(ECC_GRID, false, Hit);
+	if(!Hit.bBlockingHit)
+		return;
+	
+	int32 TargetedTile = Grid->GetTileIndexFromLocation(Hit.Location);
+
+	if (CurrentHoveredUnitIndex == TargetedTile)
+	{
+		return;
+	}
+	
+	//Add State Hovered on the last hovered Tile
+	CurrentHoveredUnitIndex =  TargetedTile;
+
+}
+
+void ATTSPlayerController::SelectTileToAction()
+{
+	if (ATTSBaseCharacter* SelectedCharacter = Grid->GetTileUnitFromIndex(CurrentHoveredTileIndex))
+	{
+		//add check on team
+		SelectedUnitAtTileIndex = CurrentHoveredTileIndex;
+	}
+	//Test Path Finding
+	/*if ( Grid->GetPathFinding()->StartIndex < 0)
 		Grid->GetPathFinding()->StartIndex = CurrentHoveredTileIndex;
 	else if (Grid->GetPathFinding()->StartIndex != CurrentHoveredTileIndex)
 	{
@@ -90,7 +115,9 @@ void ATTSPlayerController::SelectLocationToAction()
 		{
 			Grid->UpdateTileState(A, ETileState::PATH, false);
 		}
-	}
+	}*/
+
+	//Test Multiple selection
 	/*if (!bCanDoMultipleSelection)
 	{
 		for (int32 TileIndex : SelectedTileIndex)

@@ -3,6 +3,7 @@
 
 #include "Grid/TTSGridManager.h"
 
+#include "Character/TTSBaseCharacter.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Grid/TTSActorPathFinding.h"
 #include "Tiles/TTSTileModifier.h"
@@ -253,7 +254,6 @@ TArray<FVector> ATTSGridManager::ConvertToGridIndexesLocation(TArray<int32> Inde
 
 int32 ATTSGridManager::ConvertGridCoordsToGridIndex(const FVector& Coord) const
 {
-	
 	// Calculer les coordonnées de la grille en fonction de la taille de la case
 	int32 X = FMath::FloorToInt(Coord.X / TileXSize); 
 	int32 Y = FMath::FloorToInt(Coord.Y / TileYSize); 
@@ -349,6 +349,16 @@ void ATTSGridManager::AddTileToMaps(int32 GridIndex, FVector TileLocation, FTran
 	GridData.Add(GridIndex, TileData);
 }
 
+void ATTSGridManager::AddUnitToMap(int32 TileIndex, TObjectPtr<ATTSBaseCharacter> Unit)
+{
+	FTileData TileData = *GridData.Find(TileIndex);
+	TileData.UnitOnTile = Unit;
+
+	UE_LOG(LogTemp, Warning, TEXT("tile index: %d, tile unit: %s"), 
+				TileIndex, 
+				*TileData.UnitOnTile.GetName());	
+}
+
 bool ATTSGridManager::CanCrossDistance(int32 TileAIndex, int32 TileBIndex, int32 MaxDistance, bool bCanDoDiagonal)
 {
 	if (!bCanDoDiagonal)
@@ -388,6 +398,13 @@ float ATTSGridManager::GetDistanceBtwTwoTiles_ManhattanWithCost(int32 TileAIndex
 	}
 	
 	return TotalCost;
+}
+
+FVector ATTSGridManager::GetTilePositionFromUnitLocation(FVector UnitLocation)
+{
+	int32 GridLocation = GetTileIndexFromLocation(UnitLocation);
+	
+	return GridData.Find(GridLocation)->TileLocation;
 }
 
 float ATTSGridManager::GetDistanceBtwTwoTiles_Euclidienne(int32 TileAIndex, int32 TileBIndex)
@@ -445,6 +462,13 @@ FTileData ATTSGridManager::GetTileDataFromIndex(int32 Index) const
 	if (!GridData.Contains(Index))
 		return FTileData();
 	return *GridData.Find(Index);
+}
+
+TObjectPtr<ATTSBaseCharacter> ATTSGridManager::GetTileUnitFromIndex(int32 Index) const
+{
+	if (!GridData.Contains(Index))
+		return nullptr;
+	return *GridData.Find(Index)->UnitOnTile;
 }
 
 int32 ATTSGridManager::GetTileAmountOfStateFromIndex(int32 Index)
@@ -577,6 +601,14 @@ FVector ATTSGridManager::GetTileLocationUnderCursor()
 	int32 TileIndex = GetTileIndexUnderCursor();
 
 	return GetTileLocationFromMap(TileIndex);
+}
+
+void ATTSGridManager::SetCharacterOnGrid(TObjectPtr<ATTSBaseCharacter> Unit)
+{
+	FVector NewLocation = GetTilePositionFromUnitLocation(Unit->GetActorLocation()) + FVector(0.0f, 0.0f, 100.0f);
+	AddUnitToMap(GetTileIndexFromLocation(Unit->GetActorLocation()),Unit);
+	Unit->SetActorLocation(NewLocation);
+	
 }
 
 FVector ATTSGridManager::GetTileLocationUnderCursor(int32 TileIndex)
