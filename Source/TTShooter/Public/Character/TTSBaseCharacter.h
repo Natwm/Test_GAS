@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
+#include "Player/TTSPlayerController.h"
+#include "Interaction/EnemyInterface.h"
 #include "TTSBaseCharacter.generated.h"
 
 class UGameplayAbility;
@@ -12,7 +14,7 @@ class UGameplayEffect;
 class UAttributeSet;
 
 UCLASS()
-class TTSHOOTER_API ATTSBaseCharacter : public ACharacter, public IAbilitySystemInterface
+class TTSHOOTER_API ATTSBaseCharacter : public ACharacter, public IEnemyInterface, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
@@ -21,7 +23,8 @@ public:
 	ATTSBaseCharacter();
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 	UAttributeSet* GetAttributeSet() const {return AttributeSet; };
-
+	virtual void HighlightActor() override;	
+	virtual void UnHighlightActor() override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -32,6 +35,8 @@ protected:
 	virtual void InitializeDefaultAttribute() const;
 
 	void AddCharacterAbilities() const;
+	void SetCharacterOnGrid();
+
 
 public:	
 	// Called every frame

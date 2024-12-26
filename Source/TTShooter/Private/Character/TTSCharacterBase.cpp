@@ -3,6 +3,9 @@
 
 #include "Character/TTSCharacterBase.h"
 
+#include "Grid/TTSGridManager.h"
+#include "Kismet/GameplayStatics.h"
+
 // Sets default values
 ATTSCharacterBase::ATTSCharacterBase()
 {
@@ -15,7 +18,15 @@ ATTSCharacterBase::ATTSCharacterBase()
 void ATTSCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	SetCharacterOnGrid();
+}
+
+void ATTSCharacterBase::SetCharacterOnGrid()
+{
+	ATTSGridManager* grid = Cast<ATTSGridManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ATTSGridManager::StaticClass()));
+	UE_LOG(LogTemp, Warning, TEXT("new position: %s"), *grid->GetTilePositionFromUnitLocation(GetActorLocation()).ToString());
+
+	SetActorLocation(grid->GetTilePositionFromUnitLocation(GetActorLocation()));
 }
 
 // Called every frame

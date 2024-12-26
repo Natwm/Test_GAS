@@ -4,8 +4,15 @@
 #include "Character/TTSBaseCharacter.h"
 
 #include "AbilitySystemComponent.h"
+#include "NiagaraDataInterfaceEmitterBinding.h"
 #include "Components/CapsuleComponent.h"
+#include "Game/TTSDestroyAllCreatureGameMode.h"
+#include "Kismet/GameplayStatics.h"
+#include "Grid/TTSGridManager.h"
+#include "TTShooter/TTShooter.h"
 
+
+class ATTSGridManager;
 // Sets default values
 ATTSBaseCharacter::ATTSBaseCharacter()
 {
@@ -24,10 +31,22 @@ UAbilitySystemComponent* ATTSBaseCharacter::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+void ATTSBaseCharacter::HighlightActor()
+{
+	GetMesh()->SetRenderCustomDepth(true);
+	GetMesh()->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
+}
+
+void ATTSBaseCharacter::UnHighlightActor()
+{
+	GetMesh()->SetRenderCustomDepth(false);
+}
+
 // Called when the game starts or when spawned
 void ATTSBaseCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	SetCharacterOnGrid();
 }
 
 void ATTSBaseCharacter::InitAbilityActorInfo()
@@ -65,6 +84,16 @@ void ATTSBaseCharacter::AddCharacterAbilities() const
 	//UAuraAbilitySystemComponent* AuraASC = Cast<UAuraAbilitySystemComponent>(AbilitySystemComponent);
 
 	//AuraASC->AddCharacterAbilities(StartupAbilities);
+}
+
+void ATTSBaseCharacter::SetCharacterOnGrid()
+{
+	ATTSGridManager* grid = Cast<ATTSGridManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ATTSGridManager::StaticClass()));
+	grid->SetCharacterOnGrid(this);
+	
+	ATTSDestroyAllCreatureGameMode* GameMode = Cast<ATTSDestroyAllCreatureGameMode>(GetWorld()->GetAuthGameMode());
+	GameMode->UpdateGridCharacterData(this,false,true);
+
 }
 
 // Called every frame
