@@ -5,14 +5,13 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
 #include "GameFramework/Character.h"
-#include "Player/TTSPlayerController.h"
 #include "Interaction/EnemyInterface.h"
 #include "TTSBaseCharacter.generated.h"
 
 class UGameplayAbility;
 class UGameplayEffect;
 class UAttributeSet;
-
+class UMaterialInstanceDynamic;
 UCLASS()
 class TTSHOOTER_API ATTSBaseCharacter : public ACharacter, public IEnemyInterface, public IAbilitySystemInterface
 {
@@ -25,6 +24,7 @@ public:
 	UAttributeSet* GetAttributeSet() const {return AttributeSet; };
 	virtual void HighlightActor() override;	
 	virtual void UnHighlightActor() override;
+	virtual void SelectedActor() override;
 
 protected:
 	// Called when the game starts or when spawned
@@ -37,6 +37,8 @@ protected:
 	void AddCharacterAbilities() const;
 	void SetCharacterOnGrid();
 
+private :
+	void EnsureDynamicMaterial();
 
 public:	
 	// Called every frame
@@ -63,4 +65,6 @@ protected:
 private:
 	UPROPERTY(EditAnywhere, Category = "Abilities")
 	TArray<TSubclassOf<UGameplayAbility>> StartupAbilities;
+	
+	TObjectPtr<UMaterialInstanceDynamic> DynamicColor;
 };

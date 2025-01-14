@@ -5,6 +5,7 @@
 
 #include "EnhancedInputSubsystems.h"
 #include "Character/TTSBaseCharacter.h"
+#include "Character/TTSCharacterBase.h"
 #include "Grid/TTSGridManager.h"
 #include "Input/TTSInputComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -83,17 +84,28 @@ void ATTSPlayerController::CursorTraceUnitUnderCursor()
 	if(!Hit.bBlockingHit)
 		return;
 
-	FVector a = Hit.HitObjectHandle.GetLocation();
-	int32 TargetedTile = Grid->GetTileIndexFromLocation(a);
+	IEnemyInterface* TargetedUnit = Cast<IEnemyInterface>(Hit.GetActor());
+	//CurrentHoveredUnit = Cast<IEnemyInterface>(Hit.GetActor());
 
-	if (CurrentHoveredUnitIndex == TargetedTile)
+	if (CurrentHoveredUnit == TargetedUnit || CurrentHoveredCharacter == CurrentSelectedCharacter)
 	{
 		return;
 	}
-
-	if (auto unit = Grid->GetTileUnitFromIndex(TargetedTile) )
+	
+	if (CurrentHoveredUnit != nullptr)
 	{
-		if (CurrentHoveredUnitIndex >=0)
+		CurrentHoveredUnit->UnHighlightActor();
+	}
+
+	CurrentHoveredUnit = TargetedUnit;
+	CurrentHoveredUnit->HighlightActor();
+	CurrentHoveredCharacter = Cast<ATTSBaseCharacter>(Hit.GetActor());
+
+	/*FVector a = Hit.HitObjectHandle.GetLocation();
+	int32 TargetedTile = Grid->GetTileIndexFromLocation(a);*/
+	/*if (TObjectPtr<ATTSBaseCharacter> unit = Grid->GetTileUnitFromIndex(TargetedTile) )
+	{
+		if (CurrentHoveredUnitIndex >= 0)
 		{
 			unit->UnHighlightActor();
 		}
@@ -101,17 +113,27 @@ void ATTSPlayerController::CursorTraceUnitUnderCursor()
 		CurrentHoveredUnitIndex =  TargetedTile;
 		
 		Grid->GetTileUnitFromIndex(CurrentHoveredUnitIndex)->HighlightActor();
-	}
+	}*/
 }
 
 void ATTSPlayerController::SelectTileToAction()
 {
-	if (ATTSBaseCharacter* SelectedCharacter = Grid->GetTileUnitFromIndex(CurrentHoveredTileIndex))
+	if (CurrentHoveredCharacter)
 	{
 		//add check on team
-		SelectedUnitAtTileIndex = CurrentHoveredTileIndex;
+		//SelectedUnitAtTileIndex = CurrentHoveredTileIndex;
+		CurrentSelectedCharacter = CurrentHoveredCharacter;
+		CurrentHoveredCharacter->SelectedActor();
 	}
-	//Test Path Finding
+}
+
+void ATTSPlayerController::PrintTileNumber()
+{
+	CurrentHoveredTileIndex;
+	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("World delta for current frame equals %d"), CurrentHoveredTileIndex));
+}
+
+//Test Path Finding
 	/*if ( Grid->GetPathFinding()->StartIndex < 0)
 		Grid->GetPathFinding()->StartIndex = CurrentHoveredTileIndex;
 	else if (Grid->GetPathFinding()->StartIndex != CurrentHoveredTileIndex)
@@ -141,11 +163,3 @@ void ATTSPlayerController::SelectTileToAction()
 	{
 		Grid->UpdateTileState(TileIndex, ETileState::SELECTED);
 	}*/
-
-}
-
-void ATTSPlayerController::PrintTileNumber()
-{
-	CurrentHoveredTileIndex;
-	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("World delta for current frame equals %d"), CurrentHoveredTileIndex));
-}

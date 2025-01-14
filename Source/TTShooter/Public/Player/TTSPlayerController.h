@@ -6,6 +6,8 @@
 #include "GameFramework/PlayerController.h"
 #include "TTSPlayerController.generated.h"
 
+class IEnemyInterface;
+class ATTSBaseCharacter;
 class ATTSGridManager;
 class UDamageTextComponent;
 struct FGameplayTag;
@@ -48,6 +50,10 @@ private:
 	int32 SelectedUnitAtTileIndex = -1;
 	TArray<int32> SelectedTileIndex;
 	
+	//Unit Element
+	IEnemyInterface* CurrentHoveredUnit;
+    TObjectPtr<ATTSBaseCharacter> CurrentHoveredCharacter;
+    TObjectPtr<ATTSBaseCharacter> CurrentSelectedCharacter;
 
 	//Flag
 	bool bCanDoMultipleSelection = false;

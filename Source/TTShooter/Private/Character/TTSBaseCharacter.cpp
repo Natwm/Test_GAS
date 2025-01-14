@@ -34,58 +34,35 @@ UAbilitySystemComponent* ATTSBaseCharacter::GetAbilitySystemComponent() const
 //Todo:: Update those methods don't seems to work
 void ATTSBaseCharacter::HighlightActor()
 {
-	UMaterialInterface* Material = GetMesh()->GetMaterial(0); // 0 = premier slot de matériau
-	if (!Material)
+	EnsureDynamicMaterial(); // S'assurer que l'instance dynamique est prête
+
+	if (DynamicColor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No material found on the mesh component."));
-		return;
+		DynamicColor->SetVectorParameterValue(TEXT("ColorMultiplier"), FVector(255, 10, 10));
+		UE_LOG(LogTemp, Warning, TEXT("HighlightActor %s."), *GetName());
 	}
-
-	UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(Material);
-	if (!DynamicMaterial)
-	{
-		// Créer une instance dynamique du matériau
-		DynamicMaterial = UMaterialInstanceDynamic::Create(Material, GetMesh());
-		if (!DynamicMaterial)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to create dynamic material instance."));
-			return;
-		}
-
-		// Assigner l'instance dynamique au composant
-		GetMesh()->SetMaterial(0, DynamicMaterial);
-	}
-
-	// Modifier la valeur du paramètre
-	DynamicMaterial->SetVectorParameterValue("Color Multiply", FVector(255,25,25));
 }
 
 void ATTSBaseCharacter::UnHighlightActor()
 {
-	UMaterialInterface* Material = GetMesh()->GetMaterial(0); // 0 = premier slot de matériau
-	if (!Material)
+	EnsureDynamicMaterial(); // S'assurer que l'instance dynamique est prête
+
+	if (DynamicColor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No material found on the mesh component."));
-		return;
+		DynamicColor->SetVectorParameterValue(TEXT("ColorMultiplier"), FVector(0, 0, 0));
+		UE_LOG(LogTemp, Warning, TEXT("UnHighlightActor %s."), *GetName());
 	}
+}
 
-	UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(Material);
-	if (!DynamicMaterial)
-	{
-		// Créer une instance dynamique du matériau
-		DynamicMaterial = UMaterialInstanceDynamic::Create(Material, GetMesh());
-		if (!DynamicMaterial)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Failed to create dynamic material instance."));
-			return;
-		}
-
-		// Assigner l'instance dynamique au composant
-		GetMesh()->SetMaterial(0, DynamicMaterial);
-	}
-
-	// Modifier la valeur du paramètre
-	DynamicMaterial->SetVectorParameterValue("Color Multiply", FVector(0,0,25));
+void ATTSBaseCharacter::SelectedActor()
+{
+	EnsureDynamicMaterial(); // S'assurer que l'instance dynamique est prête
+    
+    	if (DynamicColor)
+    	{
+    		DynamicColor->SetVectorParameterValue(TEXT("ColorMultiplier"), FVector(52, 52, 52));
+    		UE_LOG(LogTemp, Warning, TEXT("UnHighlightActor %s."), *GetName());
+    	}
 }
 
 // Called when the game starts or when spawned
@@ -135,12 +112,25 @@ void ATTSBaseCharacter::AddCharacterAbilities() const
 void ATTSBaseCharacter::SetCharacterOnGrid()
 {
 	ATTSGridManager* grid = Cast<ATTSGridManager>(UGameplayStatics::GetActorOfClass(GetWorld(), ATTSGridManager::StaticClass()));
-	grid->SetCharacterOnGrid(this);
+	//grid->SetCharacterOnGrid(this);
 
 	//todo :: check error avec gamemode
 	//ATTSDestroyAllCreatureGameMode* GameMode = Cast<ATTSDestroyAllCreatureGameMode>(GetWorld()->GetAuthGameMode());
 	//GameMode->UpdateGridCharacterData(this,false,true);
 
+}
+
+void ATTSBaseCharacter::EnsureDynamicMaterial()
+{
+	if (!DynamicColor)
+	    {
+	        UMaterialInterface* Material = GetMesh()->GetMaterial(0); // Récupère le matériau initial
+	        if (Material)
+	        {
+	            DynamicColor = UMaterialInstanceDynamic::Create(Material, this); // Crée une instance dynamique
+	            GetMesh()->SetMaterial(0, DynamicColor); // Applique la nouvelle instance
+	        }
+	    }
 }
 
 // Called every frame
